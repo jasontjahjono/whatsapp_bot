@@ -1,9 +1,13 @@
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
 import openai
+import os
+
+from boto.s3.connection import S3Connection
+openai_key = S3Connection(os.environ['OPENAI_KEY'])
 
 app = Flask(__name__)
-openai.api_key = process.env.OPENAI_KEY
+openai.api_key = openai_key
 
 
 @app.route("/sms", methods=['POST'])
