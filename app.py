@@ -1,41 +1,83 @@
-from flask import Flask, request
+from flask import Flask, request, session
 from twilio.twiml.messaging_response import MessagingResponse
-import openai
+from twilio.rest import Client
 import os
-
-from boto.s3.connection import S3Connection
-openai_key = S3Connection(os.environ['OPENAI_KEY'])
+import openai
+import requests
 
 app = Flask(__name__)
-openai.api_key = openai_key
+# SECRET KEY CAN BE ANYTHING
+app.config['SECRET_KEY'] = 'top-secret!'
 
 
-# @app.route("/sms", methods=['POST'])
-# def sms_reply():
-#     # Fetch the message
-#     msg = request.form.get('Body')
+# OPEN-AI CHAT GPT
 
-#     # Pass the msg to GPT-4 model
-#     response = openai.Completion.create(
-#         engine="gpt-3.5-turbo",
-#         prompt=msg,
-#         temperature=0.5,
-#         max_tokens=100
-#     )
+# OPEN-AI API KEY
+openai.api_key = "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"
+completion = openai.Completion()
 
-#     # Prepare the response
-#     resp = MessagingResponse()
-#     resp.message(response.choices[0].text.strip())
-
-#     return str(resp)
-@app.route("/sms", methods=['POST'])
-def sms_reply():
-    # Prepare the response
-    resp = MessagingResponse()
-    resp.message("Hello, WhatsApp!")
-
-    return str(resp)
+start_chat_log = '''Human: Hello, who are you?
+AI: I am doing great. How can I help you today?
+'''
 
 
-if __name__ == "__main__":
-    app.run(debug=True)
+def ask(question, chat_log=None):
+    if chat_log is None:
+        chat_log = start_chat_log
+    prompt = f'{chat_log}Human: {question}\nAI:'
+    prompt = question
+    response = completion.create(
+        prompt=prompt, engine="text-davinci-003", stop=['\nHuman'], temperature=0.2,
+        top_p=1, frequency_penalty=0.1, presence_penalty=0.0, best_of=1,
+        max_tokens=256)
+    answer = response.choices[0].text.strip()
+    return answer
+
+
+def append_interaction_to_chat_log(question, answer, chat_log=None):
+    if chat_log is None:
+        chat_log = start_chat_log
+    return f'{chat_log}Human: {question}\nAI: {answer}\n'
+
+
+# TWILIO
+# Twilio Account SID
+account_sid = 'AC16d0a5bcc244f3c54c3ba466bebeacf3'
+# Twilio Account Auth Token
+auth_token = 'a53e0f62328735d21e995154861e33f3'
+client = Client(account_sid, auth_token)
+
+
+def sendMessage(body_mess, phone_number):
+    print("BODY MESSAGE " + body_mess)
+    message = client.messages.create(
+        from_='whatsapp:+14155238886',                  # With Country Code
+        body=body_mess,
+        to='whatsapp:' + phone_number                   # With Country Code
+    )
+    # Print Response
+    print(message)
+
+
+@app.route('/bot', methods=['POST'])
+def bot():
+    incoming_msg = request.values['Body']
+    phone_number = (request.values['WaId'])
+
+    if incoming_msg:
+        chat_log = session.get('chat_log')
+        answer = ask(incoming_msg, chat_log)
+        session['chat_log'] = append_interaction_to_chat_log(
+            incoming_msg, answer, chat_log)
+        sendMessage(answer, phone_number)
+        print(answer)
+    else:
+        sendMessage("Message Cannot Be Empty!")
+        print("Message Is Empty")
+    r = MessagingResponse()
+    r.message("")
+    return str(r)
+
+
+if __name__ == '__main__':
+    app.run()
