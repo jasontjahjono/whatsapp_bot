@@ -1,35 +1,31 @@
-from helper.openai_api import text_completion
+from helper.openai_api import generate_reply
 from helper.twilio_api import send_message
 
-from flask import Flask, request
 from dotenv import load_dotenv
+from flask import Flask, request
 load_dotenv()
 
 app = Flask(__name__)
 
 
 @app.route('/')
-def home():
-    return 'All is well...'
+def sanity_check():
+    return 'Just Checking!'
 
 
-@app.route('/bot', methods=['POST'])
-def receiveMessage():
+@app.route('/msg', methods=['POST'])
+def receive_message():
     try:
-        # Extract incomng parameters from Twilio
-        message = request.form['Body']
+        msg_body = request.form['Body']
         sender_id = request.form['From']
 
-        print("MESSAGE", message)
+        # Call OpenAI Api
+        result = generate_reply(msg_body)
 
-        # Get response from Openai
-        result = text_completion(message)
-        print("RESULT", result)
         if result['status'] == 1:
-            print("SENDING MSG")
             send_message(sender_id, result['response'])
     except:
-        print("HELLO WORLD")
+        pass
     return 'OK', 200
 
 

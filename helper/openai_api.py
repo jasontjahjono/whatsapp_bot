@@ -9,7 +9,7 @@ load_dotenv()
 openai.api_key = os.getenv('OPENAI_API_KEY')
 
 
-def text_completion(prompt: str) -> dict:
+def generate_reply(prompt: str) -> dict:
     '''
     Call Openai API for text completion
 
